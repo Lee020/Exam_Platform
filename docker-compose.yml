@@ -1,0 +1,101 @@
+version: '3.9'
+
+services:
+  # PostgreSQL Database
+  postgres:
+    image: postgres:15-alpine
+    container_name: exam_postgres
+    environment:
+      POSTGRES_DB: ${DB_NAME:-exam_db}
+      POSTGRES_USER: ${DB_USER:-exam_user}
+      POSTGRES_PASSWORD: ${DB_PASSWORD:-exam_password}
+      POSTGRES_INITDB_ARGS: "--encoding=UTF8"
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${DB_USER:-exam_user}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - exam_network
+    restart: unless-stopped
+
+  # Redis Cache/State
+  redis:
+    image: redis:7-alpine
+    container_name: exam_redis
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - exam_network
+    restart: unless-stopped
+    command: redis-server --appendonly yes
+
+  # Django Backend API
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: exam-backend
+    environment:
+      DEBUG: ${DEBUG:-True}
+      DJANGO_SECRET_KEY: ${DJANGO_SECRET_KEY:-dev-secret-key-change-in-production}
+      ALLOWED_HOSTS: ${ALLOWED_HOSTS:-localhost,127.0.0.1,backend}
+      DB_NAME: ${DB_NAME:-exam_db}
+      DB_USER: ${DB_USER:-exam_user}
+      DB_PASSWORD: ${DB_PASSWORD:-exam_password}
+      DB_HOST: ${DB_HOST:-postgres}
+      DB_PORT: ${DB_PORT:-5432}
+      REDIS_HOST: ${REDIS_HOST:-redis}
+      REDIS_PORT: ${REDIS_PORT:-6379}
+      JWT_SECRET_KEY: ${JWT_SECRET_KEY:-jwt-secret-key-change-in-production}
+    ports:
+      - "8000:8000"
+    volumes:
+      - ./backend:/app
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    networks:
+      - exam_network
+    restart: unless-stopped
+    command: sh -c "python manage.py migrate && python manage.py runserver 0.0.0.0:8000"
+
+  # Angular Frontend
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    container_name: exam_frontend
+    ports:
+      - "4200:4200"
+    volumes:
+      - ./frontend:/app
+      - /app/node_modules
+    depends_on:
+      - backend
+    networks:
+      - exam_network
+    restart: unless-stopped
+    environment:
+      API_URL: http://backend:8000/api
+
+volumes:
+  postgres_data:
+  redis_data:
+
+networks:
+  exam_network:
+    driver: bridge
