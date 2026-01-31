@@ -1,0 +1,162 @@
+🧩 EXAM PLATFORM FEATURES — 10 LEVELS (BASIC ➜ ADVANCED)
+🟢 LEVEL 1 – Core Access (ABSOLUTE BASICS)
+
+Goal: Users can log in safely.
+
+User registration
+
+Login / logout
+
+Password hashing
+
+Roles: Admin / Instructor / Student
+
+JWT authentication
+
+Basic RBAC
+
+✅ Platform exists, but no exams yet
+
+🟢 LEVEL 2 – Question Bank (FOUNDATION)
+
+Goal: Create and manage questions.
+
+Question creation
+
+MCQ & True/False
+
+Subject & topic tagging
+
+Difficulty levels
+
+Question status (draft / published)
+
+Question versioning (basic)
+
+🟢 LEVEL 3 – Exam Creation
+
+Goal: Build exams from questions.
+
+Create exam
+
+Assign questions manually
+
+Exam duration
+
+Pass marks
+
+Attempt limits
+
+Scheduling (start / end time)
+
+🟢 LEVEL 4 – Exam Attempt (CORE ENGINE)
+
+Goal: Students can take exams reliably.
+
+Start exam
+
+Countdown timer
+
+Auto-save answers
+
+Submit exam
+
+Resume after refresh
+
+Timeout auto-submit
+
+🔥 This is the heart of the platform
+
+🟡 LEVEL 5 – Evaluation & Results
+
+Goal: Generate scores.
+
+Auto-evaluation (MCQ)
+
+Negative marking
+
+Partial scoring
+
+Result calculation
+
+Scorecard
+
+Pass / fail status
+
+🟡 LEVEL 6 – Analytics & Reporting
+
+Goal: Understand performance.
+
+Exam statistics
+
+Question-wise analysis
+
+Rank & percentile
+
+CSV export
+
+Instructor dashboards
+
+🟠 LEVEL 7 – Anti-Cheating (SOFT SECURITY)
+
+Goal: Reduce obvious cheating.
+
+Fullscreen enforcement
+
+Tab-switch detection
+
+Copy/paste blocking
+
+IP logging
+
+Device fingerprinting
+
+⚠️ Still browser-based, not foolproof
+
+🟠 LEVEL 8 – Operational Maturity
+
+Goal: Production readiness.
+
+Email notifications
+
+Password reset
+
+Audit logs
+
+Rate limiting
+
+Admin activity tracking
+
+Error monitoring
+
+🔵 LEVEL 9 – Advanced Exams
+
+Goal: Smarter exams.
+
+Question randomization
+
+Adaptive exams
+
+Multi-language exams
+
+Accessibility (WCAG)
+
+Offline exam (sync later)
+
+🔴 LEVEL 10 – Enterprise / AI Level
+
+Goal: High-stakes, large-scale exams.
+
+AI proctoring
+
+Face recognition
+
+Gaze tracking
+
+Screen recording
+
+NLP-based descriptive evaluation
+
+Plagiarism detection
+
+Certification & verification APIs
