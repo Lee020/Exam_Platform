@@ -9,14 +9,14 @@ import { AppComponent } from './app.component';
 import { AuthService } from './auth/services/auth.service';
 import { AuthInterceptor } from './auth/interceptors/auth.interceptor';
 import { AuthGuard } from './auth/guards/auth.guard';
-import { DashboardComponent } from './dashboard/dashboard.component';
 import { LoginComponent } from './auth/components/login.component';
 import { RegisterComponent } from './auth/components/register.component';
+import { QuestionsModule } from './questions/questions.module';
+import { CoreModule } from './core/core.module';
 
 @NgModule({
   declarations: [
     AppComponent,
-    DashboardComponent,
     LoginComponent,
     RegisterComponent,
   ],
@@ -26,6 +26,8 @@ import { RegisterComponent } from './auth/components/register.component';
     HttpClientModule,
     ReactiveFormsModule,
     FormsModule,
+    CoreModule,
+    QuestionsModule,
     AppRoutingModule,
   ],
   providers: [

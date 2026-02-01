@@ -92,3 +92,12 @@ Thumbs.db
 # Docker
 docker-compose.override.yml
 frontend/.angular/cache/
+
+# Project specific
+.venv/
+exports/
+backups/
+*.log
+level1kt.txt
+create_admin.sh
+scripts/

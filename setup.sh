@@ -10,21 +10,32 @@ echo "Local Deployment Setup"
 echo "=========================================="
 echo ""
 
-# Check Docker
+# Check Docker and Docker Compose. If Docker is not available, fallback to local start script.
+DOCKER_AVAILABLE=true
 if ! command -v docker &> /dev/null; then
-    echo "❌ Docker is not installed. Please install Docker first."
-    exit 1
+    echo "⚠️ Docker is not installed on this machine. Falling back to local dev script."
+    DOCKER_AVAILABLE=false
 fi
 
-echo "✓ Docker is installed"
-
-# Check Docker Compose
-if ! command -v docker-compose &> /dev/null; then
-    echo "❌ Docker Compose is not installed. Please install Docker Compose first."
-    exit 1
+if [ "$DOCKER_AVAILABLE" = true ]; then
+    if ! command -v docker-compose &> /dev/null; then
+        echo "⚠️ docker-compose not found. Falling back to local dev script."
+        DOCKER_AVAILABLE=false
+    fi
 fi
 
-echo "✓ Docker Compose is installed"
+if [ "$DOCKER_AVAILABLE" = false ]; then
+    echo "👉 Running local startup script: scripts/start_local.sh"
+    if [ -x scripts/start_local.sh ]; then
+        ./scripts/start_local.sh
+        exit 0
+    else
+        echo "❌ Local startup script not found or not executable: scripts/start_local.sh"
+        exit 1
+    fi
+fi
+
+echo "✓ Docker and docker-compose are available. Proceeding with container-based setup..."
 
 # Create .env if it doesn't exist
 if [ ! -f .env ]; then

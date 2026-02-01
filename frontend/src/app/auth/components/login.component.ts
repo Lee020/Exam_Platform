@@ -32,14 +32,19 @@ import { Router, ActivatedRoute } from '@angular/router';
 
           <div class="form-group">
             <label for="password">Password</label>
-            <input
-              type="password"
-              id="password"
-              formControlName="password"
-              class="form-control"
-              placeholder="Enter your password"
-              [class.is-invalid]="isFieldInvalid('password')"
-            />
+            <div class="password-input-group">
+              <input
+                [type]="showPassword ? 'text' : 'password'"
+                id="password"
+                formControlName="password"
+                class="form-control"
+                placeholder="Enter your password"
+                [class.is-invalid]="isFieldInvalid('password')"
+              />
+              <button type="button" class="btn-toggle-password" (click)="togglePassword()">
+                <i class="bi" [class.bi-eye]="!showPassword" [class.bi-eye-slash]="showPassword"></i>
+              </button>
+            </div>
             <small *ngIf="isFieldInvalid('password')" class="error-text">
               Password is required
             </small>
@@ -55,7 +60,7 @@ import { Router, ActivatedRoute } from '@angular/router';
         </form>
 
         <p class="auth-link">
-          Don't have an account? <a routerLink="/auth/register">Register here</a>
+          Don't have an account? <a routerLink="/register">Register here</a>
         </p>
       </div>
     </div>
@@ -173,12 +178,41 @@ import { Router, ActivatedRoute } from '@angular/router';
     .auth-link a:hover {
       text-decoration: underline;
     }
+
+    .password-input-group {
+      position: relative;
+      display: flex;
+      align-items: center;
+    }
+
+    .btn-toggle-password {
+      position: absolute;
+      right: 10px;
+      background: none;
+      border: none;
+      color: #7f8c8d;
+      cursor: pointer;
+      padding: 5px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      z-index: 5;
+    }
+
+    .btn-toggle-password:hover {
+      color: #2c3e50;
+    }
+
+    .form-control {
+      padding-right: 40px !important;
+    }
   `]
 })
 export class LoginComponent {
   loginForm: FormGroup;
   isLoading = false;
   errorMessage = '';
+  showPassword = false;
 
   constructor(
     private formBuilder: FormBuilder,
@@ -197,6 +231,10 @@ export class LoginComponent {
     return !!(field && field.invalid && (field.dirty || field.touched));
   }
 
+  togglePassword(): void {
+    this.showPassword = !this.showPassword;
+  }
+
   onSubmit(): void {
     if (this.loginForm.invalid) {
       return;
@@ -212,7 +250,7 @@ export class LoginComponent {
         const returnUrl = this.route.snapshot.queryParams['returnUrl'] || '/dashboard';
         this.router.navigate([returnUrl]);
       },
-      error: (error) => {
+      error: (error: any) => {
         this.isLoading = false;
         this.errorMessage = error.message || 'Login failed. Please try again.';
       }

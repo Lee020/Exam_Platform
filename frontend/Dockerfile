@@ -12,6 +12,7 @@ COPY package*.json ./
 RUN npm install
 
 # Copy application
+COPY proxy.conf.json ./
 COPY . .
 
 EXPOSE 4200

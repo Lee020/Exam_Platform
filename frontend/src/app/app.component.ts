@@ -6,83 +6,81 @@ import { Router } from '@angular/router';
   selector: 'app-root',
   template: `
     <div class="app-container">
-      <nav class="navbar">
-        <div class="navbar-brand">
-          <h1>Exam Platform</h1>
-        </div>
-        <div class="navbar-menu">
-          <ng-container *ngIf="(authService.isLoggedIn$ | async)">
-            <span class="user-info">{{ (authService.currentUser$ | async)?.username }}</span>
-            <button (click)="logout()" class="btn btn-logout">Logout</button>
-          </ng-container>
+      <nav class="navbar navbar-expand-lg navbar-dark bg-dark shadow-sm">
+        <div class="container">
+          <a class="navbar-brand fw-bold" routerLink="/">Exam Platform</a>
+          
+          <button class="navbar-toggler" type="button" (click)="isMenuCollapsed = !isMenuCollapsed">
+            <span class="navbar-toggler-icon"></span>
+          </button>
+
+          <div class="collapse navbar-collapse" [class.show]="!isMenuCollapsed">
+            <ul class="navbar-nav me-auto mb-2 mb-lg-0" *ngIf="authService.isLoggedIn$ | async">
+              <li class="nav-item">
+                <a class="nav-link" routerLink="/dashboard" routerLinkActive="active">Dashboard</a>
+              </li>
+              
+              <!-- INSTRUCTOR LINKS -->
+              <ng-container *ngIf="(authService.currentUser$ | async)?.role_name === 'INSTRUCTOR'">
+                <li class="nav-item">
+                   <a class="nav-link" routerLink="/exams" routerLinkActive="active">My Exams</a>
+                </li>
+                <li class="nav-item">
+                   <a class="nav-link" routerLink="/dashboard" routerLinkActive="active">Performance Stats</a>
+                </li>
+                <li class="nav-item">
+                   <a class="nav-link" routerLink="/admin/users" routerLinkActive="active">Students</a>
+                </li>
+              </ng-container>
+
+              <!-- STUDENT LINKS -->
+              <ng-container *ngIf="(authService.currentUser$ | async)?.role_name === 'STUDENT'">
+                <li class="nav-item">
+                   <a class="nav-link" routerLink="/attempts">My Attempts</a>
+                </li>
+              </ng-container>
+
+              <!-- ADMIN LINKS -->
+              <ng-container *ngIf="(authService.currentUser$ | async)?.role_name === 'ADMIN'">
+                <li class="nav-item">
+                   <a class="nav-link" routerLink="/admin/users" routerLinkActive="active">Student Base</a>
+                </li>
+                <li class="nav-item">
+                   <a class="nav-link" href="http://localhost:8000/admin" target="_blank">Django Admin</a>
+                </li>
+              </ng-container>
+            </ul>
+
+            <div class="d-flex align-items-center gap-3" *ngIf="authService.isLoggedIn$ | async">
+               <span class="text-light small">
+                  Signed in as <strong>{{ (authService.currentUser$ | async)?.username }}</strong>
+                  <span class="badge bg-secondary ms-1">{{ (authService.currentUser$ | async)?.role_name }}</span>
+               </span>
+               <button (click)="logout()" class="btn btn-outline-light btn-sm">Logout</button>
+            </div>
+          </div>
         </div>
       </nav>
-      <main class="main-content">
-        <router-outlet></router-outlet>
+
+      <main class="main-content py-4 bg-light">
+         <router-outlet></router-outlet>
       </main>
     </div>
   `,
   styles: [`
-    .app-container {
-      display: flex;
-      flex-direction: column;
-      min-height: 100vh;
-    }
-
-    .navbar {
-      background-color: #2c3e50;
-      color: white;
-      padding: 1rem 2rem;
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-      box-shadow: 0 2px 4px rgba(0,0,0,0.1);
-    }
-
-    .navbar-brand h1 {
-      margin: 0;
-      font-size: 1.5rem;
-    }
-
-    .navbar-menu {
-      display: flex;
-      align-items: center;
-      gap: 1rem;
-    }
-
-    .user-info {
-      font-size: 0.9rem;
-      opacity: 0.9;
-    }
-
-    .btn-logout {
-      padding: 0.5rem 1rem;
-      background-color: #e74c3c;
-      color: white;
-      border: none;
-      border-radius: 4px;
-      cursor: pointer;
-      font-size: 0.9rem;
-    }
-
-    .btn-logout:hover {
-      background-color: #c0392b;
-    }
-
-    .main-content {
-      flex: 1;
-      padding: 2rem;
-      max-width: 1200px;
-      margin: 0 auto;
-      width: 100%;
-    }
+    .app-container { min-height: 100vh; display: flex; flex-direction: column; }
+    .main-content { flex: 1; }
+    .navbar-brand { font-size: 1.5rem; letter-spacing: 0.5px; }
+    .nav-link.active { font-weight: bold; color: #fff !important; }
   `]
 })
 export class AppComponent {
+  isMenuCollapsed = true;
+
   constructor(
     public authService: AuthService,
     private router: Router
-  ) {}
+  ) { }
 
   logout(): void {
     this.authService.logout().subscribe({

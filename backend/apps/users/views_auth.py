@@ -16,6 +16,9 @@ from .serializers import (
     LogoutSerializer, TokenResponseSerializer, UserSerializer
 )
 from .authentication import JWTTokenManager
+import logging
+
+logger = logging.getLogger(__name__)
 
 
 @api_view(['POST'])
@@ -50,6 +53,13 @@ def register_view(request):
             'message': 'User registered successfully',
             'user': UserSerializer(user).data
         }, status=status.HTTP_201_CREATED)
+
+    # Log serializer errors for easier debugging (includes field errors)
+    try:
+        logger.warning('Registration failed for data=%s errors=%s', request.data, serializer.errors)
+    except Exception:
+        # fallback to safe print if logger misconfigured
+        print('Registration failed', request.data, serializer.errors)
 
     return Response({
         'status': 'error',
@@ -92,7 +102,8 @@ def login_view(request):
     password = serializer.validated_data['password']
 
     try:
-        user = User.objects.get(username=username)
+        # Optimization: Select related role to avoid N+1 query during serialization
+        user = User.objects.select_related('role').get(username=username)
     except User.DoesNotExist:
         return Response({
             'status': 'error',
@@ -174,7 +185,8 @@ def logout_view(request):
 
     if exp_timestamp:
         from datetime import datetime
-        exp_time = datetime.utcfromtimestamp(exp_timestamp)
+        # Robustness: Use timezone-aware datetime
+        exp_time = datetime.fromtimestamp(exp_timestamp, tz=timezone.utc)
         JWTTokenManager.revoke_tokens(jti, request.user, exp_time)
 
     return Response({

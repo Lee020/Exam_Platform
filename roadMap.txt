@@ -1,3 +1,6 @@
+make it like admin can modify exam name time each question type and marks ....exam name everything ..........etc everything at UI level .......this plat form is genric and need to adpot any type of exam
+
+
 🧩 EXAM PLATFORM FEATURES — 10 LEVELS (BASIC ➜ ADVANCED)
 🟢 LEVEL 1 – Core Access (ABSOLUTE BASICS)
 

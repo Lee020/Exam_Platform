@@ -8,9 +8,9 @@ from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 from rest_framework.pagination import PageNumberPagination
 
-from .models import User
-from .serializers import UserSerializer, ProfileSerializer
-from .permissions import IsAdmin, IsAdminOrSelf
+from .models import User, AuditLog
+from .serializers import UserSerializer, ProfileSerializer, UserManagementSerializer
+from .permissions import IsAdmin, IsAdminOrInstructor, IsAdminOrSelf
 
 
 @api_view(['GET'])
@@ -36,14 +36,14 @@ def profile_view(request):
 
 
 @api_view(['GET'])
-@permission_classes([IsAdmin])
+@permission_classes([IsAdminOrInstructor])
 def list_users_view(request):
     """
-    List All Users (Admin Only)
+    List All Users (Admin/Instructor)
     GET /api/users/
     
     Requires: Authorization: Bearer <access_token>
-    Requires: Role = ADMIN
+    Requires: Role = ADMIN or INSTRUCTOR
     
     Response:
     {
@@ -80,7 +80,7 @@ def user_detail_view(request, user_id):
     GET /api/users/{user_id}/
     
     Requires: Authorization: Bearer <access_token>
-    Requires: Role = ADMIN or viewing own profile
+    Requires: Admin or requesting own profile
     
     Response:
     {
@@ -93,14 +93,14 @@ def user_detail_view(request, user_id):
     except User.DoesNotExist:
         return Response({
             'status': 'error',
-            'detail': 'User not found'
+            'message': 'User not found'
         }, status=status.HTTP_404_NOT_FOUND)
 
     # Check permissions
-    if request.user.role.name != 'ADMIN' and request.user.id != user.id:
+    if not request.user.is_admin and request.user.id != user.id:
         return Response({
             'status': 'error',
-            'detail': 'You do not have permission to view this user'
+            'message': 'Permission denied'
         }, status=status.HTTP_403_FORBIDDEN)
 
     serializer = UserSerializer(user)
@@ -110,45 +110,151 @@ def user_detail_view(request, user_id):
     }, status=status.HTTP_200_OK)
 
 
-@api_view(['GET'])
+@api_view(['PATCH'])
 @permission_classes([IsAuthenticated])
-def users_by_role_view(request, role):
+def update_user_view(request, user_id):
     """
-    Get Users by Role (Admin Only)
-    GET /api/users/role/{role}/
+    Update User (Admin or Self)
+    PATCH /api/users/{user_id}/
+    
+    Requires: Authorization: Bearer <access_token>
+    Requires: Admin or updating own profile
+    
+    Body:
+    {
+        "role_id": "ADMIN",  // Admin only
+        "is_active": true    // Admin only
+    }
+    """
+    try:
+        user = User.objects.get(id=user_id)
+    except User.DoesNotExist:
+        return Response({
+            'status': 'error',
+            'message': 'User not found'
+        }, status=status.HTTP_404_NOT_FOUND)
+
+    # Check permissions
+    if not request.user.is_admin and request.user.id != user.id:
+        return Response({
+            'status': 'error',
+            'message': 'Permission denied'
+        }, status=status.HTTP_403_FORBIDDEN)
+
+    # Only admin can change role and active status
+    if not request.user.is_admin:
+        request.data.pop('role_id', None)
+        request.data.pop('is_active', None)
+
+    serializer = UserManagementSerializer(user, data=request.data, partial=True)
+    if serializer.is_valid():
+        serializer.save()
+        return Response({
+            'status': 'success',
+            'user': UserSerializer(user).data
+        }, status=status.HTTP_200_OK)
+
+    return Response({
+        'status': 'error',
+        'errors': serializer.errors
+    }, status=status.HTTP_400_BAD_REQUEST)
+
+
+@api_view(['DELETE'])
+@permission_classes([IsAdmin])
+def delete_user_view(request, user_id):
+    """
+    Delete User (Admin Only)
+    DELETE /api/users/{user_id}/
     
     Requires: Authorization: Bearer <access_token>
     Requires: Role = ADMIN
-    
-    Valid roles: ADMIN, INSTRUCTOR, STUDENT
-    
-    Response:
-    {
-        "status": "success",
-        "role": "STUDENT",
-        "count": 5,
-        "users": [...]
-    }
     """
-    if request.user.role.name != 'ADMIN':
+    try:
+        user = User.objects.get(id=user_id)
+    except User.DoesNotExist:
         return Response({
             'status': 'error',
-            'detail': 'Only admins can list users by role'
-        }, status=status.HTTP_403_FORBIDDEN)
+            'message': 'User not found'
+        }, status=status.HTTP_404_NOT_FOUND)
 
-    valid_roles = ['ADMIN', 'INSTRUCTOR', 'STUDENT']
-    if role.upper() not in valid_roles:
+    # Prevent self-deletion
+    if user.id == request.user.id:
         return Response({
             'status': 'error',
-            'detail': f'Invalid role. Must be one of: {", ".join(valid_roles)}'
+            'message': 'Cannot delete your own account'
         }, status=status.HTTP_400_BAD_REQUEST)
 
-    queryset = User.objects.filter(role__name=role.upper()).select_related('role')
-    serializer = UserSerializer(queryset, many=True)
-
+    user.delete()
     return Response({
         'status': 'success',
-        'role': role.upper(),
-        'count': queryset.count(),
-        'users': serializer.data
+        'message': 'User deleted successfully'
     }, status=status.HTTP_200_OK)
+
+
+@api_view(['GET'])
+@permission_classes([IsAdmin])
+def platform_stats_view(request):
+    """
+    Get Platform Statistics (Admin Only)
+    GET /api/users/stats/
+    
+    Returns overall platform metrics
+    """
+    from apps.exams.models import Exam
+    from apps.attempts.models import Attempt
+    
+    total_users = User.objects.count()
+    total_exams = Exam.objects.count()
+    total_attempts = Attempt.objects.count()
+    
+    return Response({
+        'status': 'success',
+        'total_users': total_users,
+        'total_exams': total_exams,
+        'total_attempts': total_attempts,
+        'system_status': 'HEALTHY'
+    }, status=status.HTTP_200_OK)
+
+
+class UserManagementViewSet(viewsets.ModelViewSet):
+    queryset = User.objects.all().select_related('role')
+    serializer_class = UserManagementSerializer
+    permission_classes = [IsAdmin]
+
+    def perform_update(self, serializer):
+        user = self.request.user
+        instance = self.get_object()
+        
+        # Audit log for role/status changes
+        old_role = instance.role.name if instance.role else None
+        old_status = instance.is_active
+        
+        instance = serializer.save()
+        
+        details = {}
+        if old_role and instance.role and old_role != instance.role.name:
+            details['role_change'] = f"{old_role} -> {instance.role.name}"
+        if old_status != instance.is_active:
+            details['status_change'] = f"{old_status} -> {instance.is_active}"
+            
+        if details:
+            AuditLog.objects.create(
+                user=user,
+                action='UPDATE_USER',
+                resource='USER',
+                resource_id=str(instance.id),
+                details=details,
+                ip_address=self.request.META.get('REMOTE_ADDR')
+            )
+
+    def perform_destroy(self, instance):
+        AuditLog.objects.create(
+            user=self.request.user,
+            action='DELETE_USER',
+            resource='USER',
+            resource_id=str(instance.id),
+            details={'username': instance.username},
+            ip_address=self.request.META.get('REMOTE_ADDR')
+        )
+        instance.delete()

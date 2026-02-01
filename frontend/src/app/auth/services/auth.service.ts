@@ -29,10 +29,10 @@ interface AuthResponse {
 })
 export class AuthService {
   private apiUrl = `${environment.apiUrl}/auth`;
-  
+
   private currentUserSubject = new BehaviorSubject<User | null>(null);
   public currentUser$ = this.currentUserSubject.asObservable();
-  
+
   private isLoggedInSubject = new BehaviorSubject<boolean>(false);
   public isLoggedIn$ = this.isLoggedInSubject.asObservable();
 
@@ -81,8 +81,8 @@ export class AuthService {
    */
   logout(): Observable<any> {
     const token = this.getAccessToken();
-    
-    const logout$ = token 
+
+    const logout$ = token
       ? this.http.post(`${this.apiUrl}/logout/`, { access_token: token })
       : new Observable(observer => observer.next({}));
 
@@ -107,7 +107,7 @@ export class AuthService {
    */
   refreshAccessToken(): Observable<{ access_token: string; expires_in: number }> {
     const refreshToken = this.getRefreshToken();
-    
+
     if (!refreshToken) {
       return throwError(() => new Error('No refresh token available'));
     }
@@ -197,21 +197,62 @@ export class AuthService {
   private restoreSession(): void {
     if (this.isLoggedIn()) {
       this.verifyToken().subscribe({
-        next: () => {},
-        error: () => this.clearTokens()
+        next: () => { },
+        error: (err) => {
+          // Only logout if it's an auth error (401/403), maintain session on network error
+          if (err.status === 401 || err.status === 403) {
+            this.clearTokens();
+          }
+        }
       });
     }
   }
 
   private handleError(error: any): Observable<never> {
-    let errorMessage = 'An error occurred';
-    
+    let message = 'An error occurred';
+    let errors: any = null;
+
     if (error.error instanceof ErrorEvent) {
-      errorMessage = error.error.message;
+      message = error.error.message;
     } else if (error.status) {
-      errorMessage = error.error?.detail || error.error?.errors?.detail || error.statusText;
+      // DRF usually returns either { detail: '...' } or a dict of field errors
+      if (error.error) {
+        if (typeof error.error === 'string') {
+          message = error.error;
+        } else {
+          // Check if 'errors' property exists in the response body (Standard format)
+          if (error.error.errors) {
+            errors = error.error.errors;
+          } else {
+            errors = error.error;
+          }
+
+          message = error.error.detail || error.error.message || '';
+
+          // If no top-level message, try to pick the first field error from extracted errors
+          if (!message && errors) {
+            for (const k of Object.keys(errors)) {
+              const val = errors[k];
+              if (Array.isArray(val) && val.length > 0) {
+                message = val[0];
+                break;
+              } else if (typeof val === 'string') {
+                message = val;
+                break;
+              }
+            }
+          }
+
+          if (!message) {
+            message = error.statusText || 'Request failed';
+          }
+        }
+      } else {
+        message = error.statusText || `HTTP ${error.status}`;
+      }
     }
 
-    return throwError(() => new Error(errorMessage));
+    // Throw a structured error object so components can display field errors
+    return throwError(() => ({ message, errors, status: error.status }));
   }
 }

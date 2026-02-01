@@ -50,7 +50,7 @@ services:
     environment:
       DEBUG: ${DEBUG:-True}
       DJANGO_SECRET_KEY: ${DJANGO_SECRET_KEY:-dev-secret-key-change-in-production}
-      ALLOWED_HOSTS: ${ALLOWED_HOSTS:-localhost,127.0.0.1,backend}
+      ALLOWED_HOSTS: ${ALLOWED_HOSTS:-localhost,127.0.0.1,backend,exam-backend}
       DB_NAME: ${DB_NAME:-exam_db}
       DB_USER: ${DB_USER:-exam_user}
       DB_PASSWORD: ${DB_PASSWORD:-exam_password}
@@ -71,7 +71,7 @@ services:
     networks:
       - exam_network
     restart: unless-stopped
-    command: sh -c "python manage.py migrate && python manage.py runserver 0.0.0.0:8000"
+    command: sh -c "python manage.py migrate && python manage.py initadmin && python manage.py runserver 0.0.0.0:8000"
 
   # Angular Frontend
   frontend:

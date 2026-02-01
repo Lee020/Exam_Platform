@@ -7,8 +7,9 @@ Tokens stored in PostgreSQL blacklist for logout
 import jwt
 import json
 import uuid
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone as dt_timezone
 from django.conf import settings
+from django.utils import timezone
 from rest_framework.authentication import BaseAuthentication
 from rest_framework.exceptions import AuthenticationFailed
 import redis
@@ -50,7 +51,8 @@ class JWTAuthentication(BaseAuthentication):
 
         # Get user from token
         try:
-            user = User.objects.get(id=payload['user_id'])
+            # Optimization: Select related role to avoid N+1 query (role checks are common)
+            user = User.objects.select_related('role').get(id=payload['user_id'])
         except User.DoesNotExist:
             raise AuthenticationFailed('User not found')
 
@@ -95,25 +97,29 @@ class JWTTokenManager:
         Create access and refresh tokens for a user
         Returns dict with both tokens and token type
         """
-        now = datetime.utcnow()
-        jti = str(uuid.uuid4())
+        # Use timezone-aware UTC times for tokens
+        now = datetime.now(dt_timezone.utc)
+        # Use separate JTIs for access and refresh tokens to allow independent revocation
+        jti_access = str(uuid.uuid4())
+        jti_refresh = str(uuid.uuid4())
 
         access_payload = {
             'user_id': str(user.id),
             'username': user.username,
             'role': user.role.name,
-            'jti': jti,
+            'jti': jti_access,
             'type': 'access',
-            'iat': now,
-            'exp': now + settings.JWT_CONFIG['ACCESS_TOKEN_LIFETIME'],
+            # Use integer timestamps for iat/exp to avoid naive datetime issues
+            'iat': int(now.timestamp()),
+            'exp': int((now + settings.JWT_CONFIG['ACCESS_TOKEN_LIFETIME']).timestamp()),
         }
 
         refresh_payload = {
             'user_id': str(user.id),
-            'jti': jti,
+            'jti': jti_refresh,
             'type': 'refresh',
-            'iat': now,
-            'exp': now + settings.JWT_CONFIG['REFRESH_TOKEN_LIFETIME'],
+            'iat': int(now.timestamp()),
+            'exp': int((now + settings.JWT_CONFIG['REFRESH_TOKEN_LIFETIME']).timestamp()),
         }
 
         access_token = jwt.encode(
@@ -161,12 +167,13 @@ class JWTTokenManager:
 
         # Get user
         try:
-            user = User.objects.get(id=payload['user_id'])
+            user = User.objects.select_related('role').get(id=payload['user_id'])
         except User.DoesNotExist:
             raise AuthenticationFailed('User not found')
 
         # Create new access token
-        now = datetime.utcnow()
+        # Use timezone-aware UTC for new token timestamps
+        now = datetime.now(dt_timezone.utc)
         new_jti = str(uuid.uuid4())
 
         access_payload = {
@@ -175,8 +182,8 @@ class JWTTokenManager:
             'role': user.role.name,
             'jti': new_jti,
             'type': 'access',
-            'iat': now,
-            'exp': now + settings.JWT_CONFIG['ACCESS_TOKEN_LIFETIME'],
+            'iat': int(now.timestamp()),
+            'exp': int((now + settings.JWT_CONFIG['ACCESS_TOKEN_LIFETIME']).timestamp()),
         }
 
         access_token = jwt.encode(
@@ -205,7 +212,13 @@ class JWTTokenManager:
                 db=settings.REDIS_DB,
                 decode_responses=True
             )
-            ttl = int((expiry_time - datetime.utcnow()).total_seconds())
+            # Ensure expiry_time is timezone-aware in UTC
+            if expiry_time.tzinfo is None:
+                # assume expiry_time is in UTC if naive
+                expiry_time = timezone.make_aware(expiry_time, dt_timezone.utc)
+
+            now = timezone.now()
+            ttl = int((expiry_time - now).total_seconds())
             if ttl > 0:
                 r.setex(f'token_blacklist:{token_jti}', ttl, '1')
         except redis.ConnectionError:

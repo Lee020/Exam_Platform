@@ -46,10 +46,8 @@ class RegisterSerializer(serializers.ModelSerializer):
         min_length=8,
         help_text="Confirm password"
     )
-    role = serializers.ChoiceField(
-        choices=[('ADMIN', 'Administrator'), ('INSTRUCTOR', 'Instructor'), ('STUDENT', 'Student')],
-        default='STUDENT'
-    )
+    # Accept role case-insensitively from client and normalize in validate_role
+    role = serializers.CharField(default='STUDENT')
 
     class Meta:
         model = User
@@ -60,6 +58,14 @@ class RegisterSerializer(serializers.ModelSerializer):
         if attrs['password'] != attrs.pop('password_confirm'):
             raise serializers.ValidationError({'password': 'Passwords do not match'})
         return attrs
+
+    def validate_role(self, value):
+        """Normalize role to uppercase and ensure it's one of the allowed roles."""
+        val = (value or '').upper()
+        allowed = [c[0] for c in Role._meta.get_field('name').choices]
+        if val not in allowed:
+            raise serializers.ValidationError('Invalid role')
+        return val
 
     def validate_username(self, value):
         """Check username uniqueness and format"""
@@ -78,7 +84,11 @@ class RegisterSerializer(serializers.ModelSerializer):
     def create(self, validated_data):
         """Create user with hashed password"""
         role_name = validated_data.pop('role')
-        role = Role.objects.get(name=role_name)
+        # Ensure role exists (be robust if DB was not seeded)
+        role, _ = Role.objects.get_or_create(
+            name=role_name,
+            defaults={'description': f'{role_name.title()} role'}
+        )
 
         user = User(
             username=validated_data['username'],
@@ -138,3 +148,18 @@ class ProfileSerializer(serializers.ModelSerializer):
             'is_active', 'is_admin', 'created_at', 'updated_at', 'last_login'
         ]
         read_only_fields = ['id', 'is_active', 'is_admin', 'created_at', 'updated_at', 'last_login']
+
+class UserManagementSerializer(serializers.ModelSerializer):
+    """
+    Serializer for Admin-only user management.
+    Allows editing role and is_active status.
+    """
+    role_id = serializers.SlugRelatedField(
+        slug_field='name', queryset=Role.objects.all(), source='role'
+    )
+    role_name = serializers.CharField(source='role.name', read_only=True)
+
+    class Meta:
+        model = User
+        fields = ['id', 'username', 'email', 'role_id', 'role_name', 'is_active', 'is_admin', 'created_at']
+        read_only_fields = ['id', 'username', 'email', 'created_at']

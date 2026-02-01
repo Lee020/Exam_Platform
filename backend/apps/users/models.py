@@ -56,6 +56,7 @@ class UserManager(BaseUserManager):
             role=admin_role
         )
         user.is_admin = True
+        user.is_superuser = True
         user.save(using=self._db)
         return user
 
@@ -94,6 +95,7 @@ class User(AbstractBaseUser):
     )
     is_active = models.BooleanField(default=True)
     is_admin = models.BooleanField(default=False)
+    is_superuser = models.BooleanField(default=False)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
     last_login = models.DateTimeField(null=True, blank=True)
@@ -119,7 +121,12 @@ class User(AbstractBaseUser):
 
     @property
     def is_staff(self):
-        return self.is_admin
+        # Allow access if user is marked as admin OR has the ADMIN role
+        return self.is_admin or (self.role and self.role.name == 'ADMIN')
+
+    @property
+    def role_name(self):
+        return self.role.name if self.role else ''
 
     class Meta:
         db_table = 'users'
@@ -146,3 +153,16 @@ class TokenBlacklist(models.Model):
             models.Index(fields=['token_jti']),
             models.Index(fields=['expires_at']),
         ]
+
+class AuditLog(models.Model):
+    user = models.ForeignKey(User, on_delete=models.SET_NULL, null=True)
+    action = models.CharField(max_length=255)
+    resource = models.CharField(max_length=100)
+    resource_id = models.CharField(max_length=100, null=True, blank=True)
+    timestamp = models.DateTimeField(auto_now_add=True)
+    details = models.JSONField(null=True, blank=True)
+    ip_address = models.GenericIPAddressField(null=True, blank=True)
+
+    class Meta:
+        db_table = 'audit_logs'
+        ordering = ['-timestamp']

@@ -1,0 +1,29 @@
+name: Compose smoke test
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+
+jobs:
+  compose-smoke:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Start docker-compose stack
+        run: |
+          # Build and start services in background
+          docker compose up --build -d
+
+      - name: Run smoke tests
+        run: |
+          # run the repository smoke test which performs register/login/profile/refresh/logout
+          python3 scripts/ci_smoke_test.py
+
+      - name: Teardown
+        if: always()
+        run: |
+          docker compose down --volumes --remove-orphans
