@@ -100,4 +100,3 @@ backups/
 *.log
 level1kt.txt
 create_admin.sh
-scripts/
